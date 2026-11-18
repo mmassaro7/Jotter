@@ -77,6 +77,7 @@ sealed class SessionTab
     public string Eol { get; set; } = "\r\n";
     public int SelStart { get; set; }
     public float Zoom { get; set; } = 1f;
+    public DateTime? Started { get; set; }
 }
 
 sealed class SessionData
@@ -93,6 +94,8 @@ sealed class Document
     public string EncodingName = "UTF-8";
     public string Eol = "\r\n";
     public bool Dirty;
+    /// <summary>When text was first typed into this empty document (used for the top date/time header).</summary>
+    public DateTime? Started;
     public string Title => FilePath is null ? "Untitled" : Path.GetFileName(FilePath);
 }
 

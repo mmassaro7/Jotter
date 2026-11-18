@@ -23,8 +23,10 @@ settings live in `%LOCALAPPDATA%\Jotter` and are left in place.
 
 ## How it works
 
-- **Unsaved text carries over.** Close Jotter without saving and your text is there next time, with
-  two blank lines and a `---------11/11/2026 8:42 AM------------` divider added at the end.
+- **Unsaved text carries over.** Close Jotter without saving and your text is there next time,
+  headed by a `---------11/11/2026 8:42 AM------------` line showing when you started writing it.
+  Each reopen adds two blank lines and a new date/time divider at the end, with a blank line below
+  every divider where your new text starts.
 - **Saving clears it.** Once you save the text to a file, the next start is an empty page.
 - **Opening a file is separate.** A window opened for a file (for example with *Open with → Jotter*)
   doesn't touch your carried-over text or settings. If you change the file and close it, Jotter

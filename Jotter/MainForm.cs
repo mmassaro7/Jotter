@@ -272,6 +272,8 @@ sealed class MainForm : Form
         ed.TextChanged += (s, e) =>
         {
             if (loading) return;
+            if (ed.TextLength == 0) d.Started = null;
+            else d.Started ??= DateTime.Now;
             if (!d.Dirty) MarkDirty(d);
             sessionDirty = true;
             ScheduleStatus();
@@ -328,6 +330,7 @@ sealed class MainForm : Form
         cur.Editor.ClearUndo();
         loading = false;
         cur.FilePath = null;
+        cur.Started = null;
         cur.EncodingName = "UTF-8";
         cur.Eol = "\r\n";
         cur.Dirty = false;
@@ -813,6 +816,7 @@ sealed class MainForm : Form
                     Eol = d.Eol,
                     SelStart = d.Editor.SelectionStart,
                     Zoom = d.Editor.ZoomFactor,
+                    Started = d.Started,
                 });
             }
             Directory.CreateDirectory(AppSettings.Dir);
@@ -850,6 +854,17 @@ sealed class MainForm : Form
                 d.Dirty = true;
                 d.EncodingName = t.Encoding;
                 d.Eol = t.Eol;
+                d.Started = t.Started;
+                // The original text gets a date/time header of its own at the top.
+                if (t.Content.Length > 0 && !StartsWithHeader(t.Content))
+                {
+                    DateTime when = t.Started ?? SafeLastWrite(SessionPath);
+                    loading = true;
+                    d.Editor.Text = Header(when) + "\n\n" + t.Content;
+                    d.Editor.ClearUndo();
+                    loading = false;
+                    t.SelStart += d.Editor.TextLength - t.Content.Length;
+                }
             }
             // A tab with no unsaved content was saved to its file: start empty instead of reopening it.
             if (d != null)
@@ -873,17 +888,36 @@ sealed class MainForm : Form
     {
         var ed = d.Editor;
         if (ed.TextLength == 0) return;
-        var now = DateTime.Now;
-        var inv = System.Globalization.CultureInfo.InvariantCulture;
-        string divider = $"---------{now.ToString("M/d/yyyy", inv)} {now.ToString("h:mm tt", inv)}------------";
+        string divider = Header(DateTime.Now);
         string text = ed.Text;
-        // End the previous text's line, then leave two blank lines before the divider.
+        // End the previous text's line, then leave two blank lines before the divider
+        // and one blank line between the divider and the new text.
         string prefix = (text.EndsWith('\n') ? "" : "\n") + "\n\n";
         ed.Select(ed.TextLength, 0);
-        ed.SelectedText = prefix + divider + "\n";
+        ed.SelectedText = prefix + divider + "\n\n";
         ed.Select(ed.TextLength, 0);
         if (!d.Dirty) MarkDirty(d); // TextChanged already marks it in most cases; this keeps it consistent
         sessionDirty = true;
+    }
+
+    static string Header(DateTime when)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return $"---------{when.ToString("M/d/yyyy", inv)} {when.ToString("h:mm tt", inv)}------------";
+    }
+
+    static readonly System.Text.RegularExpressions.Regex HeaderLine =
+        new(@"^-{9}\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2} [AP]M-{12}\r?$");
+
+    static bool StartsWithHeader(string text)
+    {
+        int nl = text.IndexOf('\n');
+        return HeaderLine.IsMatch(nl < 0 ? text : text[..nl]);
+    }
+
+    static DateTime SafeLastWrite(string path)
+    {
+        try { return File.GetLastWriteTime(path); } catch { return DateTime.Now; }
     }
 
     void RestoreWindowBounds()
