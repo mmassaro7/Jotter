@@ -808,13 +808,21 @@ sealed class MainForm : Form
                 // Only unsaved text carries over. Once you save it to a file, the next start is empty.
                 if (!d.Dirty) continue;
                 if (d == cur) s.Active = s.Tabs.Count;
+                string content = d.Editor.Text;
+                int selStart = d.Editor.SelectionStart;
+                // Nothing typed after this run's reopen divider: drop the divider so it isn't kept.
+                if (d == dividerDoc && content == dividerFullText && dividerBaseText != null)
+                {
+                    content = dividerBaseText;
+                    selStart = Math.Min(selStart, content.Length);
+                }
                 s.Tabs.Add(new SessionTab
                 {
                     Path = d.FilePath,
-                    Content = d.Dirty ? d.Editor.Text : null,
+                    Content = content,
                     Encoding = d.EncodingName,
                     Eol = d.Eol,
-                    SelStart = d.Editor.SelectionStart,
+                    SelStart = selStart,
                     Zoom = d.Editor.ZoomFactor,
                     Started = d.Started,
                 });
@@ -883,6 +891,10 @@ sealed class MainForm : Form
         }
     }
 
+    // The text before and after this run's reopen divider was added, so an untouched divider can be dropped on close.
+    Document? dividerDoc;
+    string? dividerBaseText, dividerFullText;
+
     /// <summary>Adds a "---------date time------------" line at the end of restored text to mark a reopen.</summary>
     void AppendReopenDivider(Document d)
     {
@@ -890,12 +902,15 @@ sealed class MainForm : Form
         if (ed.TextLength == 0) return;
         string divider = Header(DateTime.Now);
         string text = ed.Text;
+        dividerDoc = d;
+        dividerBaseText = text;
         // End the previous text's line, then leave two blank lines before the divider
         // and one blank line between the divider and the new text.
         string prefix = (text.EndsWith('\n') ? "" : "\n") + "\n\n";
         ed.Select(ed.TextLength, 0);
         ed.SelectedText = prefix + divider + "\n\n";
         ed.Select(ed.TextLength, 0);
+        dividerFullText = ed.Text;
         if (!d.Dirty) MarkDirty(d); // TextChanged already marks it in most cases; this keeps it consistent
         sessionDirty = true;
     }
